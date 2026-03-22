@@ -1,0 +1,4 @@
+main.exe
+ConRes_Log.txt
+__pycache__/
+frontend/data/conres_run.json
