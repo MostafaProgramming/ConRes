@@ -6,6 +6,7 @@
 #include "WriterFairRWLock.h"
 #include "ConResServices.h"
 
+/* SystemContext wires the shared objects together once so every thread uses the same state. */
 struct SystemContext {
     StateTracker tracker;
     SessionGate gate;

@@ -16,6 +16,7 @@ const appState = {
   },
 };
 
+/* Collect the dashboard controls once so rendering logic can stay focused on state updates. */
 const controls = {
   playToggle: document.getElementById("play-toggle"),
   resetButton: document.getElementById("reset-playback"),
@@ -37,6 +38,7 @@ const formatSeconds = (ms) => `${(ms / 1000).toFixed(2)}s`;
 const categoryLabel = (c) => c.replace(/_/g, " ");
 const labelForUser = (id) => usersById().get(id) ? `${usersById().get(id).username} (#${id})` : `User #${id}`;
 
+/* Replay cards and manual cards share the same user-state vocabulary. */
 function determineUserState(userId, event) {
   if (!event) return "offline";
   if (event.writingUser === userId) return "writing";
@@ -46,6 +48,7 @@ function determineUserState(userId, event) {
   return "offline";
 }
 
+/* Translate raw event categories into marker-friendly phase descriptions. */
 function phaseFromEvent(event) {
   if (!event) return { title: "Idle", caption: "Run the simulation and load the generated dataset to begin the replay." };
   if (event.category === "system_start") return { title: "Boot Sequence", caption: "The tracker has started and the session gate is ready to admit users." };
@@ -58,6 +61,7 @@ function phaseFromEvent(event) {
   return { title: "System Activity", caption: "The tracker is capturing synchronized state transitions across the whole run." };
 }
 
+/* Manual mode uses the same hero panel but summarizes the sandbox instead of replay data. */
 function manualPhase() {
   ensureManualState();
   const writerText = appState.manual.writingUser != null ? "writer engaged" : "writer idle";
@@ -67,6 +71,7 @@ function manualPhase() {
   };
 }
 
+/* Keep the scrubber, current event index, and elapsed time locked together. */
 function setPlayback(index) {
   const total = appState.data?.events?.length ?? 0;
   appState.currentIndex = Math.min(Math.max(index, 0), Math.max(total - 1, 0));
@@ -81,6 +86,7 @@ function syncIndexToPlaybackTime() {
   appState.currentIndex = index;
 }
 
+/* Stop animation cleanly before jumping to another event or mode. */
 function stopPlayback() {
   appState.isPlaying = false;
   appState.lastFrameAt = null;
@@ -89,6 +95,7 @@ function stopPlayback() {
   render();
 }
 
+/* Advance through the exported event history using requestAnimationFrame for smooth playback. */
 function tick(now) {
   if (!appState.isPlaying || !appState.data) return;
   if (appState.lastFrameAt == null) appState.lastFrameAt = now;
@@ -106,6 +113,7 @@ function tick(now) {
   appState.rafId = requestAnimationFrame(tick);
 }
 
+/* Replay mode can be played, paused, or restarted from the beginning once it reaches the end. */
 function togglePlayback() {
   if (appState.mode !== "replay") return;
   if (!appState.data?.events?.length) return;
@@ -120,6 +128,7 @@ function togglePlayback() {
   render();
 }
 
+/* The mode buttons keep both dashboards on one page and simply move focus between them. */
 function setMode(mode) {
   appState.mode = mode === "manual" ? "manual" : "replay";
   if (appState.mode !== "replay" && appState.isPlaying) stopPlayback();
@@ -128,6 +137,7 @@ function setMode(mode) {
   render();
 }
 
+/* The summary cards turn the exported metadata into a quick run overview. */
 function renderSummary() {
   const target = document.getElementById("summary-grid");
   if (!appState.data) {
@@ -145,6 +155,7 @@ function renderSummary() {
   target.innerHTML = cards.map(([label, value, caption]) => `<article class="summary-card"><span>${label}</span><strong>${value}</strong><p>${caption}</p></article>`).join("");
 }
 
+/* Session-gate rendering is shared between replay snapshots and the manual sandbox. */
 function renderGate(event, prefix = "") {
   const slots = document.getElementById(`${prefix}active-slots`);
   const queue = document.getElementById(`${prefix}waiting-queue`);
@@ -166,6 +177,7 @@ function renderGate(event, prefix = "") {
     : `<div class="empty-state">No queued users at this ${prefix ? "manual state" : "event"}.</div>`;
 }
 
+/* Resource rendering makes reader overlap and writer exclusivity immediately visible. */
 function renderResource(event, ids = {}) {
   const readerLane = document.getElementById(ids.readerLane || "reader-lane");
   const writerLane = document.getElementById(ids.writerLane || "writer-lane");
@@ -181,6 +193,7 @@ function renderResource(event, ids = {}) {
   writerLane.innerHTML = writer ? `<div class="token writing"><small>Writer lock engaged</small><strong>${labelForUser(writer)}</strong></div>` : `<div class="empty-state">No writer currently holds the file.</div>`;
 }
 
+/* User cards combine the exported totals with the selected snapshot state. */
 function renderUsers(event) {
   const grid = document.getElementById("user-grid");
   const users = appState.data?.users ?? [];
@@ -199,6 +212,7 @@ function renderSpotlight(event) {
   target.innerHTML = `<article class="spotlight-card"><div class="spotlight-top"><span class="spotlight-category category-${event.category}">${categoryLabel(event.category)}</span><span class="spotlight-index">#${event.id}</span></div><h3>${event.reason}</h3><div class="spotlight-meta"><div><span>Timestamp</span><strong>${event.timestamp}</strong></div><div><span>Elapsed</span><strong>${formatSeconds(event.elapsedMs)}</strong></div><div><span>Active / Waiting</span><strong>${event.activeUsers.length} / ${event.waitingUsers.length}</strong></div><div><span>Readers / Writer</span><strong>${event.readingUsers.length} / ${event.writingUser ? 1 : 0}</strong></div></div></article>`;
 }
 
+/* These checks make the key coursework concurrency rules explicit in the UI. */
 function renderInvariants(event) {
   const target = document.getElementById("invariant-list");
   const maxSessions = appState.data?.metadata.maxSessions ?? 0;
@@ -210,6 +224,7 @@ function renderInvariants(event) {
   target.innerHTML = checks.map(([title, pass, body]) => `<article class="invariant-item ${pass ? "pass" : "warn"}"><strong>${title}</strong><p>${body}</p></article>`).join("");
 }
 
+/* Show the events around the current playback position so transitions are easy to follow. */
 function renderFeed() {
   const target = document.getElementById("event-feed");
   const events = appState.data?.events ?? [];
@@ -226,6 +241,7 @@ function linePath(points) {
   return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
 }
 
+/* The SVG chart shows how pressure builds at the gate and around the shared file over time. */
 function renderChart() {
   const svg = document.getElementById("timeline-chart");
   const data = appState.data;
@@ -252,6 +268,7 @@ function renderChart() {
   svg.innerHTML = `${gridValues.map((v) => `<line class="chart-grid-line" x1="${padding.left}" y1="${scaleY(v)}" x2="${width - padding.right}" y2="${scaleY(v)}"></line><text class="chart-axis" x="8" y="${scaleY(v) + 4}">${v}</text>`).join("")}<text class="chart-label" x="${padding.left}" y="${height - 8}">0s</text><text class="chart-label" x="${width - padding.right - 42}" y="${height - 8}">${formatSeconds(maxElapsed)}</text><path class="chart-line active" d="${linePath(series.active)}"></path><path class="chart-line waiting" d="${linePath(series.waiting)}"></path><path class="chart-line reading" d="${linePath(series.reading)}"></path><path class="chart-line writing" d="${linePath(series.writing)}"></path><line class="chart-progress" x1="${progressX}" y1="${padding.top}" x2="${progressX}" y2="${height - padding.bottom}"></line>`;
 }
 
+/* Manual mode uses a separate state model so it never mutates the recorded replay dataset. */
 function createManualState() {
   return { activeUsers: [], waitingUsers: [], readingUsers: [], writingUser: null, pendingWriters: [], log: [], tick: 0 };
 }
@@ -260,6 +277,7 @@ function ensureManualState() {
   if (!appState.manual) appState.manual = createManualState();
 }
 
+/* Manual events are kept as a short rolling log for both the main panel and the side feed. */
 function addManualLog(message, tone = "info") {
   ensureManualState();
   appState.manual.tick += 1;
@@ -280,6 +298,7 @@ function manualUserState(userId) {
   return "offline";
 }
 
+/* When an active slot becomes free, the oldest queued login is admitted first. */
 function processManualWaitingQueue() {
   while (appState.manual.activeUsers.length < manualMaxSessions() && appState.manual.waitingUsers.length > 0) {
     const next = appState.manual.waitingUsers.shift();
@@ -290,6 +309,7 @@ function processManualWaitingQueue() {
   }
 }
 
+/* Writers only start when no writer is active and no readers still hold the file. */
 function processManualWriterQueue() {
   if (appState.manual.writingUser != null || appState.manual.readingUsers.length > 0) return;
   while (appState.manual.pendingWriters.length > 0) {
@@ -309,6 +329,7 @@ function resetManualState() {
   render();
 }
 
+/* Poll the local API so the file preview reflects the latest saved shared-file contents. */
 async function loadSharedFile() {
   try {
     const response = await fetch(`/api/shared-file?ts=${Date.now()}`, { cache: "no-store" });
@@ -326,6 +347,7 @@ async function loadSharedFile() {
   render();
 }
 
+/* Manual writes go through the local API so the dashboard updates the real shared file. */
 async function saveSharedFileWrite(userId, rawText) {
   const text = rawText.trim();
   if (!text) {
@@ -357,6 +379,7 @@ async function saveSharedFileWrite(userId, rawText) {
   }
 }
 
+/* Manual login models the same bounded-session rule enforced by the C++ semaphore. */
 function attemptManualLogin(userId) {
   ensureManualState();
   if (appState.manual.activeUsers.includes(userId)) return addManualLog(`${labelForUser(userId)} is already logged in.`, "warn"), render();
@@ -371,6 +394,7 @@ function attemptManualLogin(userId) {
   render();
 }
 
+/* Logging out also releases any read or write state that user still held in the sandbox. */
 function manualLogout(userId) {
   ensureManualState();
   const waitIndex = appState.manual.waitingUsers.indexOf(userId);
@@ -391,6 +415,7 @@ function manualLogout(userId) {
   render();
 }
 
+/* New reads are blocked when a writer is active or already queued, mirroring writer priority. */
 function manualStartRead(userId) {
   ensureManualState();
   if (!appState.manual.activeUsers.includes(userId)) return addManualLog(`${labelForUser(userId)} cannot read before logging in.`, "warn"), render();
@@ -413,6 +438,7 @@ function manualStopRead(userId) {
   render();
 }
 
+/* Writes either start immediately on an idle file or join the exclusive writer queue. */
 function manualStartWrite(userId) {
   ensureManualState();
   if (!appState.manual.activeUsers.includes(userId)) return addManualLog(`${labelForUser(userId)} cannot write before logging in.`, "warn"), render();
@@ -430,6 +456,7 @@ function manualStartWrite(userId) {
   render();
 }
 
+/* Releasing a write can optionally commit the draft first, then promote the next waiting writer. */
 async function manualStopWrite(userId) {
   ensureManualState();
   if (appState.manual.writingUser !== userId) return addManualLog(`${labelForUser(userId)} does not currently hold the writer lock.`, "warn"), render();
@@ -488,6 +515,7 @@ function renderManualState() {
   renderManualFilePanel();
 }
 
+/* The file panel connects manual lock state to the live file preview and editor controls. */
 function renderManualFilePanel() {
   const writerId = appState.manual?.writingUser ?? null;
   const writerOwner = document.getElementById("manual-writer-owner");
@@ -511,11 +539,12 @@ function renderManualFilePanel() {
   }
   fileStatus.textContent = `${readers.length} reader${readers.length === 1 ? "" : "s"} inspecting the file. ${writerId != null ? `${labelForUser(writerId)} can commit updates right now.` : "No one currently has write access."}`;
   fileMeta.textContent = appState.sharedFile.updatedAt
-    ? `${appState.sharedFile.size} bytes • updated ${appState.sharedFile.updatedAt}`
+    ? `${appState.sharedFile.size} bytes | updated ${appState.sharedFile.updatedAt}`
     : `${appState.sharedFile.size} bytes`;
   fileContent.textContent = appState.sharedFile.content || "ProductSpecification.txt is currently empty.";
 }
 
+/* The hero panel doubles as the high-level explanation area for whichever mode is active. */
 function renderHero(event) {
   const phase = appState.mode === "manual" ? manualPhase() : phaseFromEvent(event);
   const finalEvent = appState.data?.events?.at(-1);
@@ -544,6 +573,7 @@ function renderMode() {
   controls.manualMode.setAttribute("aria-pressed", isReplay ? "false" : "true");
 }
 
+/* A full render refreshes both replay and manual sections from the latest app state. */
 function render() {
   const event = currentEvent();
   renderMode();
@@ -560,6 +590,7 @@ function render() {
   renderManualState();
 }
 
+/* Replay mode depends on the exported JSON file produced by the native runtime. */
 async function loadRun() {
   try {
     const response = await fetch(`data/conres_run.json?ts=${Date.now()}`, { cache: "no-store" });
@@ -602,6 +633,7 @@ function handleManualAction(action, userId) {
   if (action === "write-stop") return manualStopWrite(userId);
 }
 
+/* Wire once, then let state changes drive everything else. */
 function wireControls() {
   controls.playToggle.addEventListener("click", togglePlayback);
   controls.resetButton.addEventListener("click", () => { stopPlayback(); setPlayback(0); });
@@ -624,6 +656,7 @@ function wireControls() {
 wireControls();
 loadRun();
 loadSharedFile();
+/* Keep the shared-file panel fresh during manual demonstrations. */
 setInterval(() => {
   if (appState.data) loadSharedFile();
 }, 3000);

@@ -7,6 +7,7 @@
 #include "Guards.h"
 #include "FileOps.h"
 
+/* Each user thread runs the same workflow from authentication through logout. */
 void userSession(SystemContext& ctx, UserRecord attemptedUser, int operations, unsigned seed)
 {
     {
@@ -32,13 +33,14 @@ void userSession(SystemContext& ctx, UserRecord attemptedUser, int operations, u
 
     const UserRecord user = *authenticatedUser;
 
+    /* SessionGuard acquires a session slot here and guarantees clean release later. */
     SessionGuard session(ctx.admission.gate(), user.id);
 
     std::mt19937 rng(seed);
     std::uniform_int_distribution<int> coin(0, 99);
 
     for (int i = 1; i <= operations; ++i) {
-
+        /* Favor reads slightly so the run naturally shows overlapping readers. */
         if (coin(rng) < 70) {
             ctx.resourceAccess.performRead(user.id);
         } else {
@@ -64,15 +66,18 @@ int main()
     std::vector<std::thread> threads;
 
     for (const auto& user : ctx.authentication.records()) {
+        /* Give each user a separate seed so thread behavior is varied but repeatable enough to inspect. */
         unsigned seed = static_cast<unsigned>(
             std::chrono::high_resolution_clock::now().time_since_epoch().count()
             + user.id * 1337u
         );
 
+        /* Each authorised engineer is represented by an independent session thread. */
         threads.emplace_back([&ctx, user, seed] {
             userSession(ctx, user, opsPerUser, seed);
         });
 
+        /* A short stagger makes the admission queue easier to observe in the output. */
         sleep_ms(35);
     }
 

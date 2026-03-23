@@ -30,21 +30,22 @@ struct TrackerEvent {
     std::optional<int> writingUser;
 };
 
+/* StateTracker is the shared observability layer used by the console run and the frontend replay. */
 class StateTracker {
 public:
-    // Shared state snapshots for the live concurrency view.
+    /* These collections describe who is inside the system and what they are doing right now. */
     std::unordered_set<int> activeUsers;
     std::deque<int> waitingUsers;
     std::unordered_set<int> readingUsers;
     std::optional<int> writingUser;
 
-    // Mutexes protect shared state and serialized console/log output.
+    /* Separate mutexes keep state changes, console output, and event history consistent. */
     std::mutex stateMutex;
     std::mutex coutMutex;
 
     std::ofstream logFile;
 
-    // Atomic counters support lock-safe summary statistics.
+    /* Atomics let the summary totals be updated cheaply from many threads. */
     std::atomic<int> totalReads{0};
     std::atomic<int> totalWrites{0};
     std::atomic<int> peakActive{0};
@@ -52,11 +53,11 @@ public:
 
     std::atomic<long long> eventCounter{0};
 
-    // Per-user activity counts are exported to the frontend dataset.
+    /* Per-user counts feed the dashboard cards and the exported run summary. */
     std::unordered_map<int, int> readsByUser;
     std::unordered_map<int, int> writesByUser;
 
-    // Event history is stored separately for replay and evidence output.
+    /* Event history is stored separately so snapshots can be replayed in order later. */
     std::mutex historyMutex;
     std::vector<TrackerEvent> eventHistory;
 
@@ -64,12 +65,14 @@ public:
 
 
     StateTracker() {
+        /* Start every run with a fresh log file and a reset time origin. */
         logFile.open("ConRes_Log.txt", std::ios::out | std::ios::trunc);
         startedAt = std::chrono::steady_clock::now();
     }
 
 
     static std::string nowTime() {
+        /* Console timestamps use wall-clock time so the output reads like a live system trace. */
         using clock = std::chrono::system_clock;
 
         auto t = clock::to_time_t(clock::now());
@@ -91,6 +94,7 @@ public:
 
 
     void addWaiting(int uid) {
+        /* Queue order matters because SessionGate uses it to show blocked users visibly. */
         std::lock_guard<std::mutex> lk(stateMutex);
         waitingUsers.push_back(uid);
     }
@@ -105,7 +109,7 @@ public:
 
         activeUsers.insert(uid);
 
-        // update peak active users
+        /* Track the highest concurrency level reached during the run. */
         int current = activeUsers.size();
         peakActive = std::max(peakActive.load(), current);
     }
@@ -120,6 +124,7 @@ public:
 
   
     void startReading(int uid) {
+        /* Reads can overlap, so each active reader is tracked in a set. */
         std::lock_guard<std::mutex> lk(stateMutex);
 
         readingUsers.insert(uid);
@@ -135,6 +140,7 @@ public:
     }
 
     void startWriting(int uid) {
+        /* Only one writer may be present, so an optional ID is enough here. */
         std::lock_guard<std::mutex> lk(stateMutex);
 
         writingUser = uid;
@@ -250,6 +256,7 @@ public:
         std::optional<int> writingSnap;
 
         {
+            /* Print from a stable snapshot so each line reflects one consistent instant. */
             std::lock_guard<std::mutex> lk(stateMutex);
 
             activeSnap = activeUsers;
@@ -321,6 +328,7 @@ public:
         event.writingUser = writingSnap;
 
         {
+            /* Keep a replayable history for the frontend and the coursework evidence files. */
             std::lock_guard<std::mutex> historyLock(historyMutex);
             eventHistory.push_back(std::move(event));
         }
@@ -345,6 +353,7 @@ public:
         std::unordered_map<int, int> writesSnapshot;
 
         {
+            /* Export from snapshots so the JSON never mixes partially updated state. */
             std::lock_guard<std::mutex> historyLock(historyMutex);
             eventsSnapshot = eventHistory;
         }
@@ -360,6 +369,7 @@ public:
         if (exportPath.has_parent_path())
             std::filesystem::create_directories(exportPath.parent_path());
 
+        /* The frontend consumes one self-contained JSON file per run. */
         std::ofstream out(exportPath, std::ios::out | std::ios::trunc);
 
         out << "{\n";
@@ -433,6 +443,7 @@ public:
 
     void printStatistics()
     {
+        /* Final totals are printed for the console log and the coursework screenshots. */
         std::lock_guard<std::mutex> lk(coutMutex);
 
         std::cout << "\n==============================\n";

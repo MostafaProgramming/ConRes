@@ -1,4 +1,5 @@
 :root {
+    /* Shared design tokens keep the replay and manual panels visually consistent. */
     --bg: #0c1118;
     --bg-soft: #121b25;
     --panel: rgba(10, 19, 30, 0.82);
@@ -37,6 +38,7 @@ body {
 }
 
 body::before {
+    /* A faint grid texture makes the dashboard feel like a control-room surface. */
     content: "";
     position: fixed;
     inset: 0;
@@ -83,6 +85,7 @@ body::before {
 .hero-copy::after,
 .panel::after,
 .hero-card::after {
+    /* Subtle highlights stop the glass panels from feeling flat on large screens. */
     content: "";
     position: absolute;
     inset: 0;
@@ -192,6 +195,7 @@ body::before {
 }
 
 .mode-toggle {
+    /* The mode pills act like a compact dashboard navigator rather than page tabs. */
     display: inline-flex;
     gap: 10px;
     padding: 8px;
@@ -226,6 +230,7 @@ body::before {
 }
 
 .controls {
+    /* Playback controls stay grouped so the scrubber reads like one transport area. */
     display: grid;
     grid-template-columns: auto 1fr auto;
     gap: 20px;
@@ -348,6 +353,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .manual-grid {
+    /* Manual mode mirrors the replay layout so the rules feel familiar in both views. */
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
@@ -446,6 +452,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .file-grid {
+    /* The editor and live file preview sit side by side for live write demonstrations. */
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
@@ -524,6 +531,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .live-grid {
+    /* The two main replay panels split admission control from file-access state. */
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
@@ -670,6 +678,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .resource-stack {
+    /* Reader and writer lanes sit together so exclusivity is obvious at a glance. */
     display: grid;
     grid-template-columns: 1.3fr 0.9fr;
     gap: 14px;
@@ -727,6 +736,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .chart-frame {
+    /* A fixed chart height keeps the playback graph stable as the page updates. */
     width: 100%;
     height: 300px;
     border-radius: var(--radius-lg);
@@ -1005,6 +1015,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 @media (max-width: 1180px) {
+    /* Collapse complex two-column areas into one column before the layout feels cramped. */
     .hero,
     .workspace,
     .live-grid,
@@ -1025,6 +1036,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 @media (max-width: 720px) {
+    /* Mobile layout favors stacked controls and single-column cards for readability. */
     .app-shell {
         width: min(100% - 20px, 1500px);
     }

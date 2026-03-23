@@ -14,15 +14,19 @@ PRODUCT_FILE = ROOT / "ProductSpecification.txt"
 
 
 def ensure_product_file() -> None:
+    """Keep the manual frontend usable even before the first simulated write occurs."""
     if not PRODUCT_FILE.exists():
         PRODUCT_FILE.write_text("Initial Product Specification\n", encoding="utf-8")
 
 
 class ConResHandler(SimpleHTTPRequestHandler):
+    """Serve the static dashboard and a tiny JSON API for the shared file view."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FRONTEND_DIR), **kwargs)
 
     def do_GET(self) -> None:
+        """Route API reads to the shared-file handler and everything else to static assets."""
         parsed = urlparse(self.path)
         if parsed.path == "/api/shared-file":
             self.handle_get_shared_file()
@@ -30,6 +34,7 @@ class ConResHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
+        """Accept manual write requests from the dashboard when a writer is active."""
         parsed = urlparse(self.path)
         if parsed.path == "/api/shared-file":
             self.handle_post_shared_file()
@@ -37,6 +42,7 @@ class ConResHandler(SimpleHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND, "Endpoint not found")
 
     def handle_get_shared_file(self) -> None:
+        """Return the current shared-file contents and a little file metadata for the UI."""
         ensure_product_file()
         content = PRODUCT_FILE.read_text(encoding="utf-8")
         stats = PRODUCT_FILE.stat()
@@ -49,6 +55,7 @@ class ConResHandler(SimpleHTTPRequestHandler):
         self.send_json(payload)
 
     def handle_post_shared_file(self) -> None:
+        """Append a clearly labelled manual update so the demo leaves visible evidence."""
         ensure_product_file()
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length).decode("utf-8") if length else "{}"
@@ -73,6 +80,7 @@ class ConResHandler(SimpleHTTPRequestHandler):
         self.handle_get_shared_file()
 
     def send_json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
+        """Serialize JSON responses consistently and disable caching for live demos."""
         encoded = json.dumps(payload).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -83,6 +91,7 @@ class ConResHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
+    """Expose the dashboard and local API from a single development server."""
     ensure_product_file()
     server = ThreadingHTTPServer(("127.0.0.1", 8000), ConResHandler)
     print("Serving ConRes frontend and shared-file API at http://localhost:8000")

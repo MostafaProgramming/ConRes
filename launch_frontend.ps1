@@ -1,3 +1,7 @@
+<#
+    Build the native simulation, run it once to refresh the replay dataset,
+    then start the local frontend server for the dashboard and shared-file API.
+#>
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 .\main.exe
 Write-Host ""

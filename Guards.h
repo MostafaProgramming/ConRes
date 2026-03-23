@@ -4,6 +4,7 @@
 #include "WriterFairRWLock.h"
 #include "StateTracker.h"
 
+/* SessionGuard ties login and logout to object lifetime so a thread cannot forget to release its session slot. */
 class SessionGuard {
 public:
     SessionGuard(SessionGate& gate, int uid)
@@ -26,6 +27,7 @@ private:
     bool active_;
 };
 
+/* ReadGuard and WriteGuard apply the same RAII pattern to file ownership and tracker updates. */
 class ReadGuard {
 public:
     ReadGuard(WriterFairRWLock& rw, StateTracker& tracker, int uid)
@@ -52,15 +54,13 @@ private:
     int uid_;
 };
 
+/* WriteGuard keeps the writer lock, tracker state, and file update lifetime in sync. */
 class WriteGuard {
 public:
     WriteGuard(WriterFairRWLock& rw, StateTracker& tracker, int uid)
         : rw_(rw), tracker_(tracker), uid_(uid) {
-
         rw_.acquireWrite();
-
         tracker_.startWriting(uid_);
-
         tracker_.printStatus(
             "File: Updating started by " + std::to_string(uid_));
     }
@@ -72,10 +72,8 @@ public:
 
     ~WriteGuard() {
         tracker_.stopWriting(uid_);
-
         tracker_.printStatus(
             "File: Updating finished by " + std::to_string(uid_));
-
         rw_.releaseWrite();
     }
 

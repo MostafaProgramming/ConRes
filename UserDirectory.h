@@ -10,6 +10,7 @@ struct UserRecord {
     std::string username;
 };
 
+/* The coursework uses a fixed directory of valid users rather than dynamic registration. */
 class UserDirectory {
 public:
     UserDirectory()
@@ -30,6 +31,7 @@ public:
             byId_.emplace(record.id, record);
     }
 
+    /* Authentication succeeds only when both the pre-assigned ID and username match. */
     std::optional<UserRecord> authenticate(int uid, const std::string& username) const
     {
         auto it = byId_.find(uid);
@@ -39,6 +41,7 @@ public:
         return it->second;
     }
 
+    /* Expose the seeded user list so the simulation can spawn one thread per user. */
     const std::vector<UserRecord>& records() const
     {
         return records_;
